@@ -17,4 +17,3 @@ Real-time Discord bot for tracking anime news and ranking updates.
 - feedparser
 - BeautifulSoup4
 - Jikan API
-- 
