@@ -20,30 +20,39 @@ class News(commands.Cog):
 
         self.verificar_noticias.start()
 
-    # =========================
-    # SALVAR POSTS ENVIADOS
-    # =========================
+    # Store sent posts locally
 
     def carregar_posts(self):
 
         if not os.path.exists(self.arquivo_posts):
             return set()
 
-        with open(self.arquivo_posts, "r", encoding="utf-8") as f:
+        with open(
+            self.arquivo_posts,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
             return set(json.load(f))
 
     def salvar_posts(self):
 
-        with open(self.arquivo_posts, "w", encoding="utf-8") as f:
-            json.dump(list(self.posts_enviados), f, indent=4)
+        with open(
+            self.arquivo_posts,
+            "w",
+            encoding="utf-8"
+        ) as f:
 
-    # =========================
-    # PEGAR IMAGEM
-    # =========================
+            json.dump(
+                list(self.posts_enviados),
+                f,
+                indent=4
+            )
+
+    # Extract the first image from a feed entry
 
     def pegar_imagem(self, post):
 
-        # tenta content primeiro
         if "content" in post:
 
             for content in post.content:
@@ -57,29 +66,33 @@ class News(commands.Cog):
 
                 for img in imagens:
 
-                    # prioridade:
-                    # src -> data-src -> srcset
-
                     url = (
                         img.get("src")
                         or img.get("data-src")
                     )
 
-                    # se não tiver src normal
-                    # pega maior imagem do srcset
                     if not url and img.get("srcset"):
 
-                        imagens_srcset = img.get("srcset").split(",")
+                        imagens_srcset = (
+                            img.get("srcset")
+                            .split(",")
+                        )
 
                         ultima = imagens_srcset[-1]
 
-                        url = ultima.split(" ")[0]
+                        url = (
+                            ultima
+                            .split(" ")[0]
+                        )
 
-                    # validação mínima
-                    if url and url.startswith("http"):
+                    if (
+                        url
+                        and url.startswith(
+                            "http"
+                        )
+                    ):
                         return url
 
-        # fallback no summary
         if "summary" in post:
 
             soup = BeautifulSoup(
@@ -101,36 +114,49 @@ class News(commands.Cog):
 
         return None
 
-
-
-
-
-    # =========================
-    # LOOP
-    # =========================
-
     @tasks.loop(minutes=30)
     async def verificar_noticias(self):
 
-        canal = self.bot.get_channel(CANAL_ID)
+        canal = self.bot.get_channel(
+            CANAL_ID
+        )
 
         if canal is None:
-            print("Canal não encontrado.")
+
+            print(
+                "Canal não encontrado."
+            )
+
             return
 
-        feed = feedparser.parse(FEED_URL)
+        feed = feedparser.parse(
+            FEED_URL
+        )
 
-        for post in reversed(feed.entries[:5]):
+        # Check the latest 20 entries
+        posts = list(
+            reversed(
+                feed.entries[:20]
+            )
+        )
 
-            if post.link in self.posts_enviados:
+        for post in posts:
+
+            if (
+                post.link
+                in self.posts_enviados
+            ):
                 continue
 
-            self.posts_enviados.add(post.link)
+            self.posts_enviados.add(
+                post.link
+            )
+
             self.salvar_posts()
 
-            imagem = self.pegar_imagem(post)
-
-            print(imagem)
+            imagem = self.pegar_imagem(
+                post
+            )
 
             embed = discord.Embed(
                 title=post.title,
@@ -139,37 +165,51 @@ class News(commands.Cog):
                 color=discord.Color.red()
             )
 
-            embed.add_field(
-                name="📅 Publicado em",
-                value=post.published,
-                inline=False
-            )
+            if hasattr(
+                post,
+                "published"
+            ):
+
+                embed.add_field(
+                    name="📅 Publicado em",
+                    value=post.published,
+                    inline=False
+                )
 
             embed.set_footer(
                 text="IntoxiAnime"
             )
 
             if imagem:
-                embed.set_image(url=imagem)
-            else:
-                embed.set_thumbnail(
-                    url="https://cdn-icons-png.flaticon.com/512/5968/5968885.png"
+
+                embed.set_image(
+                    url=imagem
                 )
 
+            else:
 
-            await canal.send(embed=embed)
+                embed.set_thumbnail(
+                    url=(
+                        "https://cdn-icons-png.flaticon.com/512/5968/5968885.png"
+                    )
+                )
 
-    # =========================
-    # BEFORE LOOP
-    # =========================
+            await canal.send(
+                embed=embed
+            )
 
     @verificar_noticias.before_loop
     async def before_verificar_noticias(self):
 
         await self.bot.wait_until_ready()
 
-        print("Sistema de notícias iniciado!")
+        print(
+            "Sistema de notícias iniciado!"
+        )
 
 
 async def setup(bot):
-    await bot.add_cog(News(bot))
+
+    await bot.add_cog(
+        News(bot)
+    )

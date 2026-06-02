@@ -21,10 +21,8 @@ async def main():
 
     async with bot:
 
-        await bot.load_extension("cogs.fun")
-        await bot.load_extension("cogs.soma")
         await bot.load_extension("cogs.news")
-        await bot.load_extension("cogs.anime")
+        await bot.load_extension("cogs.top_anime")
 
         await bot.start(TOKEN)
 
