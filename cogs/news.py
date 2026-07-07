@@ -24,16 +24,51 @@ class News(commands.Cog):
 
     def carregar_posts(self):
 
+        # Cria o arquivo caso não exista
         if not os.path.exists(self.arquivo_posts):
+
+            with open(
+                self.arquivo_posts,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                json.dump(
+                    [],
+                    f,
+                    indent=4
+                )
+
             return set()
 
-        with open(
-            self.arquivo_posts,
-            "r",
-            encoding="utf-8"
-        ) as f:
+        try:
 
-            return set(json.load(f))
+            with open(
+                self.arquivo_posts,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                return set(json.load(f))
+
+        except json.JSONDecodeError:
+
+            # Se estiver vazio ou corrompido,
+            # recria o arquivo.
+
+            with open(
+                self.arquivo_posts,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                json.dump(
+                    [],
+                    f,
+                    indent=4
+                )
+
+            return set()
 
     def salvar_posts(self):
 
@@ -189,9 +224,7 @@ class News(commands.Cog):
             else:
 
                 embed.set_thumbnail(
-                    url=(
-                        "https://cdn-icons-png.flaticon.com/512/5968/5968885.png"
-                    )
+                    url="https://cdn-icons-png.flaticon.com/512/5968/5968885.png"
                 )
 
             await canal.send(
@@ -206,6 +239,10 @@ class News(commands.Cog):
         print(
             "Sistema de notícias iniciado!"
         )
+
+    def cog_unload(self):
+
+        self.verificar_noticias.cancel()
 
 
 async def setup(bot):

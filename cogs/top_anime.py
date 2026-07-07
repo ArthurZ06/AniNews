@@ -16,18 +16,53 @@ class Anime(commands.Cog):
 
     def carregar_ranking(self):
 
+        # Cria o arquivo caso ele não exista
         if not os.path.exists(
             self.arquivo_ranking
         ):
+
+            with open(
+                self.arquivo_ranking,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                json.dump(
+                    {},
+                    f,
+                    indent=4
+                )
+
             return {}
 
-        with open(
-            self.arquivo_ranking,
-            "r",
-            encoding="utf-8"
-        ) as f:
+        try:
 
-            return json.load(f)
+            with open(
+                self.arquivo_ranking,
+                "r",
+                encoding="utf-8"
+            ) as f:
+
+                return json.load(f)
+
+        except json.JSONDecodeError:
+
+            # Se estiver vazio ou corrompido,
+            # recria o arquivo.
+
+            with open(
+                self.arquivo_ranking,
+                "w",
+                encoding="utf-8"
+            ) as f:
+
+                json.dump(
+                    {},
+                    f,
+                    indent=4
+                )
+
+            return {}
 
     def salvar_ranking(
         self,
@@ -56,21 +91,19 @@ class Anime(commands.Cog):
         if canal is None:
             return
 
-        url = (
-            "https://api.jikan.moe/v4/top/anime"
-        )
+        url = "https://api.jikan.moe/v4/top/anime"
 
-        response = requests.get(
-            url
-        )
+        response = requests.get(url)
+
+        if response.status_code != 200:
+            print("Erro ao obter ranking.")
+            return
 
         data = response.json()
 
         top20 = data["data"][:20]
 
-        ranking_anterior = (
-            self.carregar_ranking()
-        )
+        ranking_anterior = self.carregar_ranking()
 
         ranking_atual = {}
 
@@ -83,11 +116,9 @@ class Anime(commands.Cog):
                 anime["mal_id"]
             )
 
-            ranking_atual[
-                anime_id
-            ] = posicao
+            ranking_atual[anime_id] = posicao
 
-        # First run
+        # Primeira execução
         if not ranking_anterior:
 
             await canal.send(
@@ -113,6 +144,8 @@ class Anime(commands.Cog):
 
             return
 
+        houve_mudanca = False
+
         for posicao, anime in enumerate(
             top20,
             start=1
@@ -122,38 +155,55 @@ class Anime(commands.Cog):
                 anime["mal_id"]
             )
 
-            titulo = anime[
-                "title"
-            ]
+            titulo = anime["title"]
 
-            # New entry
+            # Novo anime
             if anime_id not in ranking_anterior:
 
+                houve_mudanca = True
+
                 await canal.send(
-                    f"🆕 **{titulo}** **#{posicao}**"
+                    f"🆕 **{titulo}** entrou no ranking em **#{posicao}**"
                 )
 
                 continue
 
-            posicao_antiga = (
-                ranking_anterior[
-                    anime_id
-                ]
-            )
+            posicao_antiga = ranking_anterior[
+                anime_id
+            ]
 
-            # Moved up
+            # Subiu
             if posicao < posicao_antiga:
+
+                houve_mudanca = True
 
                 await canal.send(
                     f"⬆️ **{titulo}** subiu de **#{posicao_antiga}** para **#{posicao}**"
                 )
 
-            # Moved down
+            # Caiu
             elif posicao > posicao_antiga:
+
+                houve_mudanca = True
 
                 await canal.send(
                     f"⬇️ **{titulo}** caiu de **#{posicao_antiga}** para **#{posicao}**"
                 )
+
+        if houve_mudanca:
+
+            mensagem = "🔥 **Top 20 Anime Atualizado** 🔥\n\n"
+
+            for posicao, anime in enumerate(
+                top20,
+                start=1
+            ):
+
+                mensagem += (
+                    f"**#{posicao}** - {anime['title']}\n"
+                )
+
+            await canal.send(mensagem)
 
         self.salvar_ranking(
             ranking_atual
@@ -167,6 +217,10 @@ class Anime(commands.Cog):
         print(
             "Sistema de anime iniciado!"
         )
+
+    def cog_unload(self):
+
+        self.verification_anime.cancel()
 
 
 async def setup(bot):
