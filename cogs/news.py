@@ -6,7 +6,7 @@ import json
 import os
 
 FEED_URL = "https://www.intoxianime.com/feed/"
-CANAL_ID = 1495959671658516550
+CHANNEL_ID = 1495959671658516550
 
 
 class News(commands.Cog):
@@ -15,20 +15,20 @@ class News(commands.Cog):
 
         self.bot = bot
 
-        self.arquivo_posts = "posts_enviados.json"
-        self.posts_enviados = self.carregar_posts()
+        self.sent_posts_file = "sent_posts.json"
+        self.sent_posts = self.load_sent_posts()
 
-        self.verificar_noticias.start()
+        self.check_news.start()
 
-    # Store sent posts locally
+    # Load previously sent posts
 
-    def carregar_posts(self):
+    def load_sent_posts(self):
 
-        # Cria o arquivo caso não exista
-        if not os.path.exists(self.arquivo_posts):
+        # Create the file if it does not exist
+        if not os.path.exists(self.sent_posts_file):
 
             with open(
-                self.arquivo_posts,
+                self.sent_posts_file,
                 "w",
                 encoding="utf-8"
             ) as f:
@@ -44,7 +44,7 @@ class News(commands.Cog):
         try:
 
             with open(
-                self.arquivo_posts,
+                self.sent_posts_file,
                 "r",
                 encoding="utf-8"
             ) as f:
@@ -53,11 +53,10 @@ class News(commands.Cog):
 
         except json.JSONDecodeError:
 
-            # Se estiver vazio ou corrompido,
-            # recria o arquivo.
-
+            # If the file is empty or corrupted,
+            # recreate it.
             with open(
-                self.arquivo_posts,
+                self.sent_posts_file,
                 "w",
                 encoding="utf-8"
             ) as f:
@@ -70,23 +69,25 @@ class News(commands.Cog):
 
             return set()
 
-    def salvar_posts(self):
+    # Save sent posts to the local file
+
+    def save_sent_posts(self):
 
         with open(
-            self.arquivo_posts,
+            self.sent_posts_file,
             "w",
             encoding="utf-8"
         ) as f:
 
             json.dump(
-                list(self.posts_enviados),
+                list(self.sent_posts),
                 f,
                 indent=4
             )
 
     # Extract the first image from a feed entry
 
-    def pegar_imagem(self, post):
+    def get_image(self, post):
 
         if "content" in post:
 
@@ -97,9 +98,9 @@ class News(commands.Cog):
                     "html.parser"
                 )
 
-                imagens = soup.find_all("img")
+                images = soup.find_all("img")
 
-                for img in imagens:
+                for img in images:
 
                     url = (
                         img.get("src")
@@ -108,15 +109,15 @@ class News(commands.Cog):
 
                     if not url and img.get("srcset"):
 
-                        imagens_srcset = (
+                        srcset_images = (
                             img.get("srcset")
                             .split(",")
                         )
 
-                        ultima = imagens_srcset[-1]
+                        last_image = srcset_images[-1]
 
                         url = (
-                            ultima
+                            last_image
                             .split(" ")[0]
                         )
 
@@ -150,16 +151,16 @@ class News(commands.Cog):
         return None
 
     @tasks.loop(minutes=30)
-    async def verificar_noticias(self):
+    async def check_news(self):
 
-        canal = self.bot.get_channel(
-            CANAL_ID
+        channel = self.bot.get_channel(
+            CHANNEL_ID
         )
 
-        if canal is None:
+        if channel is None:
 
             print(
-                "Canal não encontrado."
+                "Channel not found."
             )
 
             return
@@ -168,7 +169,7 @@ class News(commands.Cog):
             FEED_URL
         )
 
-        # Check the latest 20 entries
+        # Check the latest 20 feed entries
         posts = list(
             reversed(
                 feed.entries[:20]
@@ -179,17 +180,17 @@ class News(commands.Cog):
 
             if (
                 post.link
-                in self.posts_enviados
+                in self.sent_posts
             ):
                 continue
 
-            self.posts_enviados.add(
+            self.sent_posts.add(
                 post.link
             )
 
-            self.salvar_posts()
+            self.save_sent_posts()
 
-            imagem = self.pegar_imagem(
+            image = self.get_image(
                 post
             )
 
@@ -215,10 +216,10 @@ class News(commands.Cog):
                 text="IntoxiAnime"
             )
 
-            if imagem:
+            if image:
 
                 embed.set_image(
-                    url=imagem
+                    url=image
                 )
 
             else:
@@ -227,22 +228,22 @@ class News(commands.Cog):
                     url="https://cdn-icons-png.flaticon.com/512/5968/5968885.png"
                 )
 
-            await canal.send(
+            await channel.send(
                 embed=embed
             )
 
-    @verificar_noticias.before_loop
-    async def before_verificar_noticias(self):
+    @check_news.before_loop
+    async def before_check_news(self):
 
         await self.bot.wait_until_ready()
 
         print(
-            "Sistema de notícias iniciado!"
+            "News system started!"
         )
 
     def cog_unload(self):
 
-        self.verificar_noticias.cancel()
+        self.check_news.cancel()
 
 
 async def setup(bot):

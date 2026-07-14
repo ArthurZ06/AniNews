@@ -1,10 +1,11 @@
-# Importing necessary libraries and modules
+# Import required libraries
+
+import asyncio
+import os
 
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-import os
-import asyncio
 
 load_dotenv()
 
@@ -17,6 +18,7 @@ bot = commands.Bot(
     intents=intents
 )
 
+
 async def main():
 
     async with bot:
@@ -25,5 +27,6 @@ async def main():
         await bot.load_extension("cogs.top_anime")
 
         await bot.start(TOKEN)
+
 
 asyncio.run(main())
